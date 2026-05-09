@@ -8,37 +8,35 @@ import { HATS } from '../lib/hatConfig'
 import { getDeviceId } from '../lib/utils'
 import FlameEffect from '../components/FlameEffect'
 
-// Phases: join → select-group → select-role → waiting → target | hat
+// Phases: join → select-group → waiting → target | hat
 
 export default function StudentPage() {
   const router = useRouter()
   const { code: urlCode } = router.query
 
-  const [phase, setPhase]         = useState('join')
+  const [phase, setPhase]             = useState('join')
   const [sessionCode, setSessionCode] = useState('')
-  const [name, setName]           = useState('')
-  const [error, setError]         = useState('')
-  const [joining, setJoining]     = useState(false)
-  const [session, setSession]     = useState(null)
-  const [deviceId, setDeviceId]   = useState(null)
+  const [name, setName]               = useState('')
+  const [error, setError]             = useState('')
+  const [joining, setJoining]         = useState(false)
+  const [session, setSession]         = useState(null)
+  const [deviceId, setDeviceId]       = useState(null)
   const [selectedGroupId, setSelectedGroupId] = useState(null)
   const [danmakuText, setDanmakuText] = useState('')
-  const [sent, setSent]           = useState(false)
+  const [sent, setSent]               = useState(false)
 
   // Derived
-  const me             = session?.students?.[deviceId] ?? null
-  const effectiveGid   = me?.groupId || selectedGroupId
-  const myGroup        = effectiveGid ? session?.groups?.[effectiveGid] : null
-  const myHat     = me?.hat ? HATS[me.hat] : null
-  const isRoasting = session?.status === 'roasting'
-  const isTarget  = isRoasting && me?.groupId === session?.targetGroupId
+  const me          = session?.students?.[deviceId] ?? null
+  const effectiveGid = me?.groupId || selectedGroupId
+  const myGroup     = effectiveGid ? session?.groups?.[effectiveGid] : null
+  const myHat       = me?.hat ? HATS[me.hat] : null
+  const isRoasting  = session?.status === 'roasting'
   const targetGroup = session?.groups?.[session?.targetGroupId]
 
   useEffect(() => {
     const id = getDeviceId()
     setDeviceId(id)
     if (urlCode) setSessionCode(urlCode)
-    // Restore only the name for convenience — never force a group or role
     const savedName = localStorage.getItem('roast_name')
     if (savedName) setName(savedName)
   }, [urlCode])
@@ -55,26 +53,25 @@ export default function StudentPage() {
       const roasting = data.status === 'roasting'
       const target   = student.groupId === data.targetGroupId
       setPhase(prev => {
-        if (prev === 'join')        return 'join'         // user hasn't clicked join yet
-        if (roasting && target)     return 'target'
-        if (roasting && student.hat) return 'hat'
-        if (prev === 'select-role') return 'select-role'  // never interrupt role selection
+        if (prev === 'join')          return 'join'
+        if (roasting && target)       return 'target'
+        if (roasting && student.hat)  return 'hat'
         if (prev === 'hat' || prev === 'target') return student.groupId ? 'waiting' : 'select-group'
-        if (student.groupId)        return 'waiting'
+        if (student.groupId)          return 'waiting'
         return 'select-group'
       })
     })
   }, [sessionCode, deviceId])
 
-  // ── Actions ─────────────────────────────────────────────────────────────
+  // ── Actions ──────────────────────────────────────────────────────────────
   const handleJoin = async () => {
-    if (!name.trim())            { setError('請輸入你的名字'); return }
+    if (!name.trim()) { setError('請輸入你的名字'); return }
     const c = sessionCode.trim().toUpperCase()
-    if (c.length < 6)            { setError('請輸入完整的場次代碼'); return }
+    if (c.length < 6) { setError('請輸入完整的場次代碼'); return }
     setJoining(true)
     try {
       const snap = await get(ref(db, `sessions/${c}`))
-      if (!snap.exists())        { setError('找不到這個場次，請確認代碼'); setJoining(false); return }
+      if (!snap.exists()) { setError('找不到這個場次，請確認代碼'); setJoining(false); return }
       const data = snap.val()
       localStorage.setItem('roast_name', name.trim())
       setSessionCode(c)
@@ -82,25 +79,19 @@ export default function StudentPage() {
 
       const existing = data.students?.[deviceId]
       if (existing) {
-        // Returning student — update name but preserve group/role
+        // Returning student — update name, resume correct phase
         await update(ref(db, `sessions/${c}/students/${deviceId}`), { name: name.trim() })
         setSession(data)
         const roasting = data.status === 'roasting'
         const isTarget = existing.groupId === data.targetGroupId
-        if (roasting && isTarget)              { setPhase('target') }
-        else if (roasting && existing.hat)     { setPhase('hat') }
-        else if (existing.isLeader && existing.groupId) {
-          router.push(`/leader?code=${c}&group=${existing.groupId}`)
-        } else if (existing.groupId) {
-          setSelectedGroupId(existing.groupId)
-          setPhase('waiting')
-        } else {
-          setPhase('select-group')
-        }
+        if (roasting && isTarget)          { setPhase('target') }
+        else if (roasting && existing.hat) { setPhase('hat') }
+        else if (existing.groupId)         { setSelectedGroupId(existing.groupId); setPhase('waiting') }
+        else                               { setPhase('select-group') }
       } else {
-        // New student — create fresh record
+        // New student
         await set(ref(db, `sessions/${c}/students/${deviceId}`), {
-          name: name.trim(), groupId: null, hat: null, isLeader: false, joinedAt: Date.now(),
+          name: name.trim(), groupId: null, hat: null, joinedAt: Date.now(),
         })
         setSession(data)
         setPhase('select-group')
@@ -111,24 +102,13 @@ export default function StudentPage() {
 
   const selectGroup = async (groupId) => {
     setSelectedGroupId(groupId)
-    setPhase('select-role')  // set BEFORE Firebase write — subscription won't override it
-    await update(ref(db, `sessions/${sessionCode}/students/${deviceId}`), { groupId })
-  }
-
-  const becomeLeader = async () => {
-    const gid = me?.groupId || selectedGroupId
-    if (!gid) return
-    await update(ref(db, `sessions/${sessionCode}/students/${deviceId}`), { isLeader: true })
-    router.push(`/leader?code=${sessionCode}&group=${gid}`)
-  }
-
-  const confirmMember = () => {
     setPhase('waiting')
+    await update(ref(db, `sessions/${sessionCode}/students/${deviceId}`), { groupId })
   }
 
   const leaveGroup = async () => {
     await update(ref(db, `sessions/${sessionCode}/students/${deviceId}`), {
-      groupId: null, isLeader: false, hat: null,
+      groupId: null, hat: null,
     })
     setSelectedGroupId(null)
     setPhase('select-group')
@@ -153,7 +133,7 @@ export default function StudentPage() {
       <div className="min-h-screen font-tc">
         <AnimatePresence mode="wait">
 
-          {/* JOIN */}
+          {/* ── JOIN ─────────────────────────────────────────────── */}
           {phase === 'join' && (
             <motion.div key="join"
               className="min-h-screen brick-bg flex flex-col items-center justify-center p-6"
@@ -165,12 +145,18 @@ export default function StudentPage() {
                 <h1 className="font-impact text-7xl neon-orange text-center mb-1">ROAST</h1>
                 <p className="text-orange-600 text-center tracking-widest text-xs mb-10">進入炎上現場</p>
                 <div className="flex flex-col gap-4">
-                  <input className="w-full bg-gray-900 text-white border border-orange-800 rounded-xl px-4 py-4 text-lg focus:outline-none focus:border-orange-500 transition-colors"
-                    placeholder="你的暱稱" value={name} onChange={e => setName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleJoin()} maxLength={10} />
-                  <input className="w-full bg-gray-900 text-white border border-orange-800 rounded-xl px-4 py-4 text-2xl tracking-[0.5em] uppercase text-center font-impact focus:outline-none focus:border-orange-500 transition-colors"
-                    placeholder="場次代碼" value={sessionCode} onChange={e => setSessionCode(e.target.value.toUpperCase())}
-                    onKeyDown={e => e.key === 'Enter' && handleJoin()} maxLength={6} />
+                  <input
+                    className="w-full bg-gray-900 text-white border border-orange-800 rounded-xl px-4 py-4 text-lg focus:outline-none focus:border-orange-500 transition-colors"
+                    placeholder="你的暱稱" value={name}
+                    onChange={e => setName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleJoin()}
+                    maxLength={10} />
+                  <input
+                    className="w-full bg-gray-900 text-white border border-orange-800 rounded-xl px-4 py-4 text-2xl tracking-[0.5em] uppercase text-center font-impact focus:outline-none focus:border-orange-500 transition-colors"
+                    placeholder="場次代碼" value={sessionCode}
+                    onChange={e => setSessionCode(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === 'Enter' && handleJoin()}
+                    maxLength={6} />
                   {error && <p className="text-red-400 text-sm text-center">{error}</p>}
                   <button onClick={handleJoin} disabled={joining}
                     className="w-full py-4 rounded-xl font-black text-xl text-white transition-all active:scale-95 disabled:opacity-50"
@@ -182,13 +168,13 @@ export default function StudentPage() {
             </motion.div>
           )}
 
-          {/* SELECT GROUP */}
+          {/* ── SELECT GROUP ──────────────────────────────────────── */}
           {phase === 'select-group' && session && (
             <motion.div key="select-group"
               className="min-h-screen brick-bg flex flex-col items-center justify-center p-6"
               initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <h2 className="text-2xl font-black text-orange-300 mb-1">你在哪一組？</h2>
-              <p className="text-gray-500 text-sm mb-8">選擇你的組別</p>
+              <p className="text-gray-500 text-sm mb-8">選擇你的組別加入</p>
               <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
                 {Object.values(session.groups ?? {}).map(group => (
                   <motion.button key={group.id} onClick={() => selectGroup(group.id)}
@@ -201,43 +187,16 @@ export default function StudentPage() {
             </motion.div>
           )}
 
-          {/* SELECT ROLE */}
-          {phase === 'select-role' && myGroup && (
-            <motion.div key="select-role"
-              className="min-h-screen brick-bg flex flex-col items-center justify-center p-6"
-              initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <div className="w-full max-w-sm text-center">
-                <div className="text-5xl mb-3">👥</div>
-                <h2 className="text-2xl font-black text-orange-300 mb-1">你加入了 {myGroup.name}</h2>
-                <p className="text-gray-500 text-sm mb-8">請選擇你的角色</p>
-                <div className="flex flex-col gap-4">
-                  <motion.button onClick={becomeLeader} whileTap={{ scale: 0.95 }}
-                    className="w-full py-5 rounded-2xl font-black text-lg text-white transition-all"
-                    style={{ background: 'linear-gradient(135deg, #7a1500, #cc3300)', border: '1px solid #ff4400' }}>
-                    📝 我是組長（設定方案卡片）
-                  </motion.button>
-                  <motion.button onClick={confirmMember} whileTap={{ scale: 0.95 }}
-                    className="w-full py-5 rounded-2xl font-black text-lg text-orange-300 bg-gray-900 border border-orange-900 hover:border-orange-600 hover:bg-gray-800 transition-all">
-                    🎓 我是組員（等待開始）
-                  </motion.button>
-                </div>
-                <p className="text-gray-600 text-xs mt-4">每組建議選一位組長</p>
-                <button onClick={leaveGroup}
-                  className="mt-3 text-gray-600 text-xs underline hover:text-gray-400 transition-colors">
-                  ← 選錯了，重新選組
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* WAITING */}
+          {/* ── WAITING ───────────────────────────────────────────── */}
           {phase === 'waiting' && (
             <motion.div key="waiting"
               className="min-h-screen brick-bg flex flex-col items-center justify-center p-6"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="text-6xl mb-4">⏳</div>
               <h2 className="text-2xl font-black text-orange-300 mb-2">等待炙烤開始</h2>
-              <p className="text-gray-500 text-sm mb-6">你在 <span className="text-orange-400 font-bold">{myGroup?.name}</span></p>
+              <p className="text-gray-500 text-sm mb-6">
+                你在 <span className="text-orange-400 font-bold">{myGroup?.name}</span>
+              </p>
               {(myGroup?.problem || myGroup?.solution) && (
                 <div className="bg-gray-900/80 border border-orange-900/40 rounded-xl p-4 max-w-sm w-full mb-6">
                   {myGroup.problem && (
@@ -266,7 +225,7 @@ export default function StudentPage() {
             </motion.div>
           )}
 
-          {/* TARGET — YOU'RE ON FIRE */}
+          {/* ── TARGET — YOU'RE ON FIRE ───────────────────────────── */}
           {phase === 'target' && (
             <motion.div key="target"
               className="min-h-screen target-bg flex flex-col items-center justify-center p-6 relative overflow-hidden"
@@ -294,7 +253,7 @@ export default function StudentPage() {
             </motion.div>
           )}
 
-          {/* HAT — REVIEWER */}
+          {/* ── HAT — REVIEWER ────────────────────────────────────── */}
           {phase === 'hat' && myHat && (
             <motion.div key="hat" className="min-h-screen flex flex-col"
               style={{ background: `linear-gradient(180deg, ${myHat.bg} 0%, #080406 70%)` }}
