@@ -43,9 +43,9 @@ export default function StudentPage() {
     if (savedName) setName(savedName)
   }, [urlCode])
 
-  // Subscribe after leaving join phase
+  // Session subscription — no phase dependency to avoid stale-closure races
   useEffect(() => {
-    if (phase === 'join' || !sessionCode || !deviceId) return
+    if (!sessionCode || !deviceId) return
     return onValue(ref(db, `sessions/${sessionCode}`), snap => {
       if (!snap.exists()) return
       const data = snap.val()
@@ -54,11 +54,17 @@ export default function StudentPage() {
       if (!student) { setPhase('join'); setSession(null); return }
       const roasting = data.status === 'roasting'
       const target   = student.groupId === data.targetGroupId
-      if (roasting && target)       setPhase('target')
-      else if (roasting && student.hat) setPhase('hat')
-      else if (student.groupId && phase !== 'select-role') setPhase('waiting')
+      setPhase(prev => {
+        if (prev === 'join')        return 'join'         // user hasn't clicked join yet
+        if (roasting && target)     return 'target'
+        if (roasting && student.hat) return 'hat'
+        if (prev === 'select-role') return 'select-role'  // never interrupt role selection
+        if (prev === 'hat' || prev === 'target') return student.groupId ? 'waiting' : 'select-group'
+        if (student.groupId)        return 'waiting'
+        return 'select-group'
+      })
     })
-  }, [phase, sessionCode, deviceId])
+  }, [sessionCode, deviceId])
 
   // ── Actions ─────────────────────────────────────────────────────────────
   const handleJoin = async () => {
@@ -105,8 +111,8 @@ export default function StudentPage() {
 
   const selectGroup = async (groupId) => {
     setSelectedGroupId(groupId)
+    setPhase('select-role')  // set BEFORE Firebase write — subscription won't override it
     await update(ref(db, `sessions/${sessionCode}/students/${deviceId}`), { groupId })
-    setPhase('select-role')
   }
 
   const becomeLeader = async () => {
