@@ -33,6 +33,7 @@ export default function TeacherPage() {
   const [editSolution, setEditSolution] = useState('')
   const [editProblem, setEditProblem] = useState('')
   const [showReset, setShowReset] = useState(false)
+  const [showQR, setShowQR] = useState(false)
 
   useEffect(() => {
     if (code && typeof window !== 'undefined') {
@@ -248,7 +249,9 @@ export default function TeacherPage() {
               <div className="text-xs text-gray-500 mb-0.5">學生掃碼加入</div>
               {studentUrl && (
                 <>
-                  <div className="bg-white p-2 rounded-xl inline-block mb-1">
+                  <div className="bg-white p-2 rounded-xl inline-block mb-1 cursor-pointer hover:opacity-80 transition-opacity"
+                    title="點擊放大"
+                    onClick={() => setShowQR(true)}>
                     <QRCode value={studentUrl} size={80} />
                   </div>
                   <div>
@@ -459,6 +462,26 @@ export default function TeacherPage() {
           )}
         </AnimatePresence>
 
+        {/* ── QR CODE FULLSCREEN MODAL ──────────────────────────────── */}
+        <AnimatePresence>
+          {showQR && studentUrl && (
+            <motion.div
+              className="fixed inset-0 bg-black/92 flex flex-col items-center justify-center z-50 cursor-pointer"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowQR(false)}>
+              <motion.div
+                className="bg-white p-8 rounded-3xl"
+                initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                onClick={e => e.stopPropagation()}>
+                <QRCode value={studentUrl} size={300} />
+              </motion.div>
+              <p className="font-impact text-4xl text-white tracking-[0.5em] mt-6">{code}</p>
+              <p className="text-gray-500 text-sm mt-3">點擊任意處關閉</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── RESET CONFIRM MODAL ─────────────────────────────────── */}
         <AnimatePresence>
           {showReset && (
@@ -479,6 +502,10 @@ export default function TeacherPage() {
             </motion.div>
           )}
         </AnimatePresence>
+        {/* Version */}
+        <div className="fixed bottom-2 right-3 text-gray-700 text-xs pointer-events-none select-none">
+          2026 © Dr. Huang Wei Lun
+        </div>
       </div>
     </>
   )

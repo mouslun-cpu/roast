@@ -22,7 +22,8 @@ export default function LeaderPage() {
   const [saved, setSaved]           = useState(false)
   const [danmakuText, setDanmakuText] = useState('')
   const [danmakuSent, setDanmakuSent] = useState(false)
-  const inputRef = useRef(null)
+  const inputRef    = useRef(null)
+  const wasLeaderRef = useRef(false)  // true once we confirm isLeader===true
 
   useEffect(() => {
     const id = getDeviceId()
@@ -48,11 +49,16 @@ export default function LeaderPage() {
     })
   }, [code, groupId])
 
-  // Redirect back to student page if session resets and our record is gone
+  // Redirect back to student page only after we were confirmed as leader and then lost that status
   useEffect(() => {
     if (!session || !deviceId || !code) return
-    if (me == null) router.replace(`/student?code=${code}`)
-  }, [session, deviceId, me, code, router])
+    const st = session.students?.[deviceId]
+    if (st?.isLeader) {
+      wasLeaderRef.current = true
+      return
+    }
+    if (wasLeaderRef.current) router.replace(`/student?code=${code}`)
+  }, [session, deviceId, code, router])
 
   // Derived
   const group      = session?.groups?.[groupId]
