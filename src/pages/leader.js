@@ -48,6 +48,12 @@ export default function LeaderPage() {
     })
   }, [code, groupId])
 
+  // Redirect back to student page if session resets and our record is gone
+  useEffect(() => {
+    if (!session || !deviceId || !code) return
+    if (me == null) router.replace(`/student?code=${code}`)
+  }, [session, deviceId, me, code, router])
+
   // Derived
   const group      = session?.groups?.[groupId]
   const students   = session?.students ?? {}
@@ -185,7 +191,7 @@ export default function LeaderPage() {
                   <div className="text-center py-4">
                     <div className="flex justify-center gap-1.5 mb-2">
                       {[0,1,2].map(i => (
-                        <div key={i} className="w-2 h-2 rounded-full bg-orange-700 animate-bounce" style={{ animationDelay: `${i * 0.18}s` }} />
+                        <div key={i} className="w-2 h-2 rounded-full bg-orange-700" />
                       ))}
                     </div>
                     <p className="text-gray-500 text-sm">等待老師開始炙烤...</p>

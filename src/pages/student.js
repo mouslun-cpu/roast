@@ -21,6 +21,7 @@ export default function StudentPage() {
   const [joining, setJoining]     = useState(false)
   const [session, setSession]     = useState(null)
   const [deviceId, setDeviceId]   = useState(null)
+  const [selectedGroupId, setSelectedGroupId] = useState(null)
   const [danmakuText, setDanmakuText] = useState('')
   const [sent, setSent]           = useState(false)
 
@@ -49,7 +50,7 @@ export default function StudentPage() {
       const data = snap.val()
       setSession(data)
       const student = data.students?.[deviceId]
-      if (!student) return
+      if (!student) { setPhase('join'); setSession(null); return }
       const roasting = data.status === 'roasting'
       const target   = student.groupId === data.targetGroupId
       if (roasting && target)       setPhase('target')
@@ -80,14 +81,16 @@ export default function StudentPage() {
   }
 
   const selectGroup = async (groupId) => {
+    setSelectedGroupId(groupId)
     await update(ref(db, `sessions/${sessionCode}/students/${deviceId}`), { groupId })
     setPhase('select-role')
   }
 
   const becomeLeader = async () => {
-    if (!me?.groupId) return
+    const gid = me?.groupId || selectedGroupId
+    if (!gid) return
     await update(ref(db, `sessions/${sessionCode}/students/${deviceId}`), { isLeader: true })
-    router.push(`/leader?code=${sessionCode}&group=${me.groupId}`)
+    router.push(`/leader?code=${sessionCode}&group=${gid}`)
   }
 
   const confirmMember = () => {
