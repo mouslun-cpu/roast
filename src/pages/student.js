@@ -26,8 +26,9 @@ export default function StudentPage() {
   const [sent, setSent]           = useState(false)
 
   // Derived
-  const me        = session?.students?.[deviceId] ?? null
-  const myGroup   = me?.groupId ? session?.groups?.[me.groupId] : null
+  const me             = session?.students?.[deviceId] ?? null
+  const effectiveGid   = me?.groupId || selectedGroupId
+  const myGroup        = effectiveGid ? session?.groups?.[effectiveGid] : null
   const myHat     = me?.hat ? HATS[me.hat] : null
   const isRoasting = session?.status === 'roasting'
   const isTarget  = isRoasting && me?.groupId === session?.targetGroupId
@@ -68,14 +69,36 @@ export default function StudentPage() {
     try {
       const snap = await get(ref(db, `sessions/${c}`))
       if (!snap.exists())        { setError('找不到這個場次，請確認代碼'); setJoining(false); return }
-      await set(ref(db, `sessions/${c}/students/${deviceId}`), {
-        name: name.trim(), groupId: null, hat: null, isLeader: false, joinedAt: Date.now(),
-      })
-      localStorage.setItem('roast_name', name.trim()) // only save name, no group
-      setSession(snap.val())
+      const data = snap.val()
+      localStorage.setItem('roast_name', name.trim())
       setSessionCode(c)
-      setPhase('select-group')
       setError('')
+
+      const existing = data.students?.[deviceId]
+      if (existing) {
+        // Returning student — update name but preserve group/role
+        await update(ref(db, `sessions/${c}/students/${deviceId}`), { name: name.trim() })
+        setSession(data)
+        const roasting = data.status === 'roasting'
+        const isTarget = existing.groupId === data.targetGroupId
+        if (roasting && isTarget)              { setPhase('target') }
+        else if (roasting && existing.hat)     { setPhase('hat') }
+        else if (existing.isLeader && existing.groupId) {
+          router.push(`/leader?code=${c}&group=${existing.groupId}`)
+        } else if (existing.groupId) {
+          setSelectedGroupId(existing.groupId)
+          setPhase('waiting')
+        } else {
+          setPhase('select-group')
+        }
+      } else {
+        // New student — create fresh record
+        await set(ref(db, `sessions/${c}/students/${deviceId}`), {
+          name: name.trim(), groupId: null, hat: null, isLeader: false, joinedAt: Date.now(),
+        })
+        setSession(data)
+        setPhase('select-group')
+      }
     } catch { setError('連線失敗，請稍後再試') }
     setJoining(false)
   }
@@ -95,6 +118,14 @@ export default function StudentPage() {
 
   const confirmMember = () => {
     setPhase('waiting')
+  }
+
+  const leaveGroup = async () => {
+    await update(ref(db, `sessions/${sessionCode}/students/${deviceId}`), {
+      groupId: null, isLeader: false, hat: null,
+    })
+    setSelectedGroupId(null)
+    setPhase('select-group')
   }
 
   const sendDanmaku = async () => {
@@ -185,6 +216,10 @@ export default function StudentPage() {
                   </motion.button>
                 </div>
                 <p className="text-gray-600 text-xs mt-4">每組建議選一位組長</p>
+                <button onClick={leaveGroup}
+                  className="mt-3 text-gray-600 text-xs underline hover:text-gray-400 transition-colors">
+                  ← 選錯了，重新選組
+                </button>
               </div>
             </motion.div>
           )}
@@ -213,11 +248,15 @@ export default function StudentPage() {
                   )}
                 </div>
               )}
-              <div className="flex justify-center gap-1.5">
+              <div className="flex justify-center gap-1.5 mb-6">
                 {[0,1,2].map(i => (
                   <div key={i} className="w-2.5 h-2.5 rounded-full bg-orange-700" />
                 ))}
               </div>
+              <button onClick={leaveGroup}
+                className="text-gray-600 text-xs underline hover:text-gray-400 transition-colors">
+                ← 選錯了，重新選組
+              </button>
             </motion.div>
           )}
 
