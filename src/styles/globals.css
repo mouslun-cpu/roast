@@ -1,0 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Typography ── */
+@layer base {
+  html { font-family: 'Noto Sans TC', sans-serif; }
+  html, body { background-color: #080406; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   KEYFRAMES — defined here in globals so they're always
+   included regardless of Tailwind JIT purging
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes flame-core {
+  0%   { transform: scaleX(1)    scaleY(1)    translateY(0)    rotate(-2deg); }
+  20%  { transform: scaleX(0.88) scaleY(1.08) translateY(-4%)  rotate(1deg);  }
+  40%  { transform: scaleX(1.1)  scaleY(0.95) translateY(-8%)  rotate(-1deg); }
+  60%  { transform: scaleX(0.92) scaleY(1.1)  translateY(-6%)  rotate(2deg);  }
+  80%  { transform: scaleX(1.05) scaleY(0.98) translateY(-10%) rotate(-2deg); }
+  100% { transform: scaleX(0.95) scaleY(1.12) translateY(-5%)  rotate(1deg);  }
+}
+
+@keyframes flame-mid {
+  0%   { transform: scaleX(1)    scaleY(1)    translateY(0)    rotate(1deg);  }
+  25%  { transform: scaleX(1.1)  scaleY(0.92) translateY(-5%)  rotate(-3deg); }
+  50%  { transform: scaleX(0.9)  scaleY(1.08) translateY(-12%) rotate(2deg);  }
+  75%  { transform: scaleX(1.05) scaleY(0.95) translateY(-8%)  rotate(-1deg); }
+  100% { transform: scaleX(0.95) scaleY(1.05) translateY(-4%)  rotate(3deg);  }
+}
+
+@keyframes flame-tip {
+  0%   { transform: scaleX(1)    scaleY(1)    translateY(0)    rotate(-3deg); }
+  30%  { transform: scaleX(0.8)  scaleY(1.15) translateY(-15%) rotate(4deg);  }
+  60%  { transform: scaleX(1.2)  scaleY(0.88) translateY(-10%) rotate(-4deg); }
+  100% { transform: scaleX(0.85) scaleY(1.1)  translateY(-18%) rotate(2deg);  }
+}
+
+/* Danmaku: scrolls left → right, re-enters from left on loop */
+@keyframes danmaku-scroll {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100vw); }
+}
+
+/* Student target-group pulsing red background */
+@keyframes fire-bg {
+  0%, 100% { background-position: 0%   50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+/* Green-hat electric danmaku */
+@keyframes electric {
+  0%, 100% { filter: drop-shadow(0 0 3px #00ff88); }
+  50%      { filter: drop-shadow(0 0 8px #00ffaa) drop-shadow(0 0 16px #00ff44); }
+}
+
+/* Subtle opacity pulse (emoji on roasting card) */
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.8; }
+  50%      { opacity: 1;   }
+}
+
+/* ── Brick wall stage background ── */
+.brick-bg {
+  background-color: #080406;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent, transparent 29px,
+      rgba(120, 40, 0, 0.12) 29px, rgba(120, 40, 0, 0.12) 30px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent, transparent 59px,
+      rgba(120, 40, 0, 0.06) 59px, rgba(120, 40, 0, 0.06) 60px
+    );
+}
+
+/* ── Neon text effects ── */
+
+/* ROAST STAGE title — crisp, no blur */
+.neon-title {
+  color: #ff9000;
+}
+
+/* Body-use neon (card labels, etc.) — moderate glow */
+.neon-orange {
+  color: #ff7700;
+  text-shadow:
+    0 0 6px  #ff8800,
+    0 0 12px #ff5500;
+}
+.neon-red {
+  color: #ff2200;
+  text-shadow:
+    0 0 6px  #ff2200,
+    0 0 12px #cc0000;
+}
+.neon-yellow {
+  color: #ffee00;
+  text-shadow:
+    0 0 6px  #ffee00,
+    0 0 12px #ffaa00;
+}
+
+/* ── Spotlight overlay ── */
+.spotlight-overlay {
+  background: radial-gradient(
+    ellipse 52% 58% at 50% 44%,
+    transparent 0%,
+    transparent 38%,
+    rgba(0, 0, 0, 0.55) 62%,
+    rgba(0, 0, 0, 0.88) 84%,
+    rgba(0, 0, 0, 0.97) 100%
+  );
+}
+
+/* ── Target group fire background (student) ── */
+.target-bg {
+  background: linear-gradient(270deg, #ff1100, #ff6600, #cc0000, #ff3300);
+  background-size: 400% 400%;
+  animation: fire-bg 3s ease infinite;
+}
+
+/* ── Hat card base styles ── */
+.hat-card {
+  @apply rounded-2xl p-8 w-full text-center shadow-2xl;
+}
+.hat-black  { background: linear-gradient(135deg, #111    0%, #2a2a2a 100%); border: 2px solid #555555; }
+.hat-red    { background: linear-gradient(135deg, #5c0000 0%, #991100 100%); border: 2px solid #ff4422; }
+.hat-yellow { background: linear-gradient(135deg, #5a4a00 0%, #998800 100%); border: 2px solid #ffdd00; }
+.hat-green  { background: linear-gradient(135deg, #004400 0%, #006600 100%); border: 2px solid #00cc44; }
+.hat-white  { background: linear-gradient(135deg, #252535 0%, #383850 100%); border: 2px solid #8888aa; }
+.hat-blue   { background: linear-gradient(135deg, #001a40 0%, #002a66 100%); border: 2px solid #0088ff; }
+
+/* ── Danmaku special effects ── */
+.danmaku-smoke {
+  text-shadow: 0 0 8px rgba(180,180,180,0.6);
+  filter: drop-shadow(0 0 4px rgba(150,150,150,0.5));
+}
+.danmaku-electric {
+  filter: drop-shadow(0 0 6px #00ff88) drop-shadow(0 0 14px #00ff44);
+}
+
+/* ── Group card glow on hover ── */
+.group-card {
+  @apply rounded-xl p-5 bg-gray-900/80 border border-orange-950 transition-all duration-300 cursor-default;
+}
+.group-card:hover {
+  border-color: #ff6600;
+  box-shadow: 0 0 20px rgba(255,102,0,0.2);
+}
+
+/* ── Fire button ── */
+.btn-fire {
+  background: linear-gradient(135deg, #7a1500, #cc3300);
+  border: 1px solid #ff4400;
+  color: #ffccaa;
+  @apply font-bold rounded-lg transition-all duration-200;
+}
+.btn-fire:hover {
+  background: linear-gradient(135deg, #aa2200, #ff4400);
+  box-shadow: 0 0 16px rgba(255,80,0,0.5);
+}
+.btn-fire:active { transform: scale(0.97); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #553300; border-radius: 3px; }
